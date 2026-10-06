@@ -1,0 +1,16 @@
+{
+  "name": "candy-cascade",
+  "version": "1.0.0",
+  "description": "A match-3 candy game for the web with fluid, physics-driven animation.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node tools/serve.mjs",
+    "build": "node tools/build.mjs",
+    "test": "node --test test/*.test.mjs",
+    "simulate": "node tools/simulate.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}
