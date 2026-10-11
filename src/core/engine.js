@@ -78,6 +78,7 @@ export class Engine {
     this.over = false;
     this.result = null;
     this.stats = { swaps: 0, specials: 0, bestCascade: 0, shuffles: 0 };
+    this.chocolateIdle = 0;
   }
 
   get timing() {
@@ -524,7 +525,10 @@ export class Engine {
   // ---------------------------------------------------------------- end of a move
 
   async afterMove(ctx) {
-    if (!this.goalsDone() && !ctx.chocolateHit && this.board.countBlockers('chocolate') > 0) {
+    // Chocolate grows after two moves in a row that break none of it.
+    this.chocolateIdle = ctx.chocolateHit ? 0 : this.chocolateIdle + 1;
+    if (!this.goalsDone() && this.chocolateIdle >= 2 && this.board.countBlockers('chocolate') > 0) {
+      this.chocolateIdle = 0;
       const spread = this.board.spreadChocolate();
       if (spread) {
         this.goals.forEach((goal, index) => {

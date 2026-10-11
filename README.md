@@ -35,12 +35,12 @@ Swipe a candy toward a neighbour, or tap one candy and then a neighbour, to swap
 
 Swapping two specials together combines them: two striped candies fire a cross, a bomb and a striped candy fire three rows and three columns, two bombs make a huge blast, a rainbow bomb turns every candy of a kind into striped candies or small bombs, and two rainbow bombs clear the board.
 
-Levels ask you to reach a score, collect candies, or clear blockers:
+There are 300 levels in 15 episodes of 20. Most levels are relaxed; every 10th level is a **challenge** (purple node with a bomb badge) that is a little tougher, so it may take a second try. Levels ask you to reach a score, collect candies, or clear blockers:
 
 - **Ice blocks** shatter when you match next to them.
 - **Caramel blocks** take two hits; the first one cracks them.
 - **Candy-cane cages** lock a candy in place until you match it or blast it.
-- **Chocolate** spreads after every move that doesn't break a piece of it.
+- **Chocolate** spreads if you go two moves without breaking a piece of it.
 - **Stopwatch candies** (level 10) give three extra moves when cleared.
 
 Moves left over when you win turn into striped candies that all go off at once for bonus points. Stars and best scores are saved in the browser.
@@ -62,10 +62,11 @@ All motion runs on one clock, so pausing freezes everything, including the game 
 ```
 index.html, styles.css    page shell and styles
 src/core/                 game rules with no rendering: board, engine, levels, seeded RNG
+src/core/level-data.js    the 300 calibrated levels (generated; see below)
 src/view/                 canvas renderer, animations, particles, sprite baking, audio
 src/ui/                   HUD, level map, saved progress
 src/app.js                screens, level sessions and modals
-tools/                    dev server, build, balance simulator
+tools/                    dev server, build, level generator, balance bot and simulator
 test/                     rule tests (node:test)
 assets/                   art, renamed from the CraftPix pack, plus fonts
 ```
@@ -76,10 +77,13 @@ The engine runs each move as a sequence of awaited steps and calls an animator f
 
 ```sh
 npm test             # rules, special combos, blockers, and random play on every level
-npm run simulate     # a bot plays each level many times and reports win rates and star scores
+npm run levels       # regenerate and recalibrate all 300 levels (about 30 seconds)
+npm run simulate -- 200 1 20   # a bot plays levels 1-20 200 times each and reports win rates
 ```
 
-Move counts and star thresholds come from the simulator. The bot wins level 1 almost every time and the final level about two times in three.
+Levels 1-12 are hand-made, and each one introduces a mechanic. Levels 13-300 come from `tools/level-designs.mjs`, which mixes 20 board shapes, mirrored blocker patterns and goal types. Every design is checked so all cells can refill and every blocker can be reached by a match.
+
+`npm run levels` then calibrates each level with simulated play. A bot plays it many times without a move limit and records how many moves each game needed. The move count is set where the bot wins about 95% of normal levels and about 70% of challenge levels. A second batch of games at that move count confirms the win rate and sets the star scores. The current data: normal levels win 92-100% for the bot (median 21 moves), and challenges win 66-81%.
 
 ## Credits
 

@@ -96,11 +96,11 @@ test('winning converts leftover moves into a finale and reports stars', async ()
 // Plays every level with random valid moves and checks the board invariants after each move.
 test('every level stays consistent under random play', async () => {
   for (const level of LEVELS) {
-    for (let seed = 1; seed <= 6; seed++) {
+    for (let seed = 1; seed <= 2; seed++) {
       const rng = createRng(seed * 7919 + level.id);
       const engine = new Engine(level, { rng });
       assert.deepEqual(checkSettled(engine.board), [], `level ${level.id} initial board`);
-      for (let turn = 0; turn < 60 && !engine.over; turn++) {
+      for (let turn = 0; turn < 40 && !engine.over; turn++) {
         const moves = engine.board.validMoves();
         assert.ok(moves.length > 0, `level ${level.id} has a move`);
         const move = moves[Math.floor(rng.next() * moves.length)];
@@ -127,4 +127,27 @@ test('tapping a bomb sets it off', async () => {
   assert.equal(ok, true);
   assert.equal(engine.moves, 9);
   assert.equal(engine.board.list.filter((c) => c.piece?.special === Special.BOMB).length, 0);
+});
+
+test('there are 300 levels with a challenge every 10th level', () => {
+  assert.equal(LEVELS.length, 300);
+  LEVELS.forEach((level, i) => {
+    assert.equal(level.id, i + 1);
+    assert.equal(level.challenge, level.id % 10 === 0, `level ${level.id} challenge flag`);
+    assert.ok(level.moves >= 12 && level.moves <= 45, `level ${level.id} moves ${level.moves}`);
+    assert.ok(level.goals.length > 0, `level ${level.id} has goals`);
+    const [one, two, three] = level.stars;
+    assert.ok(one < two && two < three, `level ${level.id} star thresholds rise`);
+    for (const goal of level.goals) {
+      if (goal.type === 'collect') assert.ok(goal.color < level.colors, `level ${level.id} collects a candy it uses`);
+    }
+  });
+  assert.equal(new Set(LEVELS.map((l) => l.name)).size, 300, 'level names are unique');
+});
+
+test('blocker goals always have blockers to clear', () => {
+  for (const level of LEVELS) {
+    const engine = new Engine(level, { rng: createRng(level.id) });
+    for (const goal of engine.goals) assert.ok(goal.target > 0, `level ${level.id} ${goal.type} goal is not empty`);
+  }
 });

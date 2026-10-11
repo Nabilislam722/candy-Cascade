@@ -8,7 +8,8 @@
     "start": "node tools/serve.mjs",
     "build": "node tools/build.mjs",
     "test": "node --test test/*.test.mjs",
-    "simulate": "node tools/simulate.mjs"
+    "simulate": "node tools/simulate.mjs",
+    "levels": "node tools/generate-levels.mjs"
   },
   "devDependencies": {
     "esbuild": "0.28.2"

@@ -1,54 +1,18 @@
 // Plays every level many times with a simple greedy bot and prints win rates and scores.
-// Used to balance move counts and star thresholds: `npm run simulate [games] [levelId]`.
-import { Engine } from '../src/core/engine.js';
+// Usage: `npm run simulate [games] [fromLevel] [toLevel]`. Level data comes from `npm run levels`.
 import { LEVELS } from '../src/core/levels.js';
-import { createRng } from '../src/core/rng.js';
+import { play } from './bot.mjs';
 
 const games = Number(process.argv[2] ?? 200);
-const only = process.argv[3] ? Number(process.argv[3]) : null;
-
-function chooseMove(engine, rng) {
-  const wanted = new Set(engine.goals.filter((g) => g.type === 'collect' && g.left > 0).map((g) => g.color));
-  const blockersLeft = engine.goals.some((g) => g.type !== 'collect' && g.type !== 'score' && g.left > 0);
-  let best = null;
-  let bestScore = -Infinity;
-  for (const move of engine.board.validMoves()) {
-    let score = move.weight + rng.next() * 4;
-    if (wanted.has(move.a.piece.color) || wanted.has(move.b.piece.color)) score += 4;
-    if (blockersLeft) {
-      for (const cell of [move.a, move.b]) {
-        for (const n of engine.board.neighbors(cell)) if (n.blocker || n.lock) score += 2.5;
-      }
-    }
-    score += (move.a.r + move.b.r) * 0.2;
-    if (score > bestScore) {
-      bestScore = score;
-      best = move;
-    }
-  }
-  return best;
-}
-
-async function play(level, seed) {
-  const rng = createRng(seed);
-  const bot = createRng(seed ^ 0x9e3779b9);
-  const engine = new Engine(level, { rng });
-  let movesLeftAtWin = 0;
-  engine.hooks.complete = () => (movesLeftAtWin = engine.moves);
-  while (!engine.over) {
-    const move = chooseMove(engine, bot);
-    if (!move) break;
-    await engine.trySwap(move.a, move.b);
-  }
-  return { win: !!engine.result?.win, score: engine.score, stars: engine.result?.stars ?? 0, movesLeftAtWin, stats: engine.stats };
-}
+const from = Number(process.argv[3] ?? 1);
+const to = Number(process.argv[4] ?? process.argv[3] ?? LEVELS.length);
 
 const pct = (n, d) => `${((100 * n) / d).toFixed(0)}%`.padStart(4);
 
 console.log(`games per level: ${games}`);
 console.log('lvl  name                win  1★   2★   3★   avg score   p50 win   left  shuffles  cascade   suggested stars (p40 / p85 of wins)');
 for (const level of LEVELS) {
-  if (only && level.id !== only) continue;
+  if (level.id < from || level.id > to) continue;
   const results = [];
   for (let i = 0; i < games; i++) results.push(await play(level, 1000 + i * 7 + level.id * 104729));
   const wins = results.filter((r) => r.win);

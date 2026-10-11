@@ -4,8 +4,9 @@ const SPACING = 128;
 const LOCK =
   '<svg class="lock" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V8a5 5 0 0 1 10 0v2h1a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 18 21H6a1.5 1.5 0 0 1-1.5-1.5v-8A1.5 1.5 0 0 1 6 10Zm2.5 0h5V8a2.5 2.5 0 0 0-5 0Z"/></svg>';
 
-// The level trail: a winding path from the bottom (level 1) to the top.
-export function renderMap(container, levels, progress, onSelect) {
+// One episode of the level trail: a winding path from its first level (bottom) to its last.
+// `offset` is the index of the first level overall, so the curve continues across episodes.
+export function renderMap(container, levels, progress, onSelect, offset = 0) {
   const width = container.clientWidth || 360;
   const height = levels.length * SPACING + 180;
   container.style.height = `${height}px`;
@@ -13,7 +14,7 @@ export function renderMap(container, levels, progress, onSelect) {
 
   const points = levels.map((level, i) => {
     const swing = Math.min(width * 0.3, 150);
-    return { x: width / 2 + Math.sin(i * 1.15 + 0.4) * swing, y: height - 110 - i * SPACING };
+    return { x: width / 2 + Math.sin((offset + i) * 1.15 + 0.4) * swing, y: height - 110 - i * SPACING };
   });
 
   const svgNS = 'http://www.w3.org/2000/svg';
@@ -52,7 +53,7 @@ export function renderMap(container, levels, progress, onSelect) {
     const p = points[i];
     const img = document.createElement('img');
     img.className = 'map-decor';
-    img.src = `assets/items/${DECOR_KEYS[(i / 2) % DECOR_KEYS.length]}.png`;
+    img.src = `assets/items/${DECOR_KEYS[((offset + i) / 2) % DECOR_KEYS.length]}.png`;
     img.alt = '';
     const side = p.x > width / 2 ? -1 : 1;
     img.style.left = side < 0 ? `${Math.max(6, width * 0.06)}px` : `${Math.min(width - 78, width * 0.94 - 72)}px`;
@@ -98,12 +99,21 @@ export function renderMap(container, levels, progress, onSelect) {
     node.type = 'button';
     node.className = 'map-node';
     node.dataset.state = state;
+    if (level.challenge) node.dataset.challenge = '';
     node.style.left = `${p.x}px`;
     node.style.top = `${p.y}px`;
     node.style.setProperty('--d', `${Math.min(i, 8) * 0.04}s`);
     node.textContent = String(level.id);
     const starsText = earned ? `, ${earned} of 3 stars` : '';
-    node.setAttribute('aria-label', unlocked ? `Level ${level.id}: ${level.name}${starsText}` : `Level ${level.id}, locked`);
+    const kind = level.challenge ? ' (challenge)' : '';
+    node.setAttribute('aria-label', unlocked ? `Level ${level.id}${kind}: ${level.name}${starsText}` : `Level ${level.id}${kind}, locked`);
+    if (level.challenge) {
+      const badge = document.createElement('img');
+      badge.className = 'node-badge';
+      badge.src = 'assets/items/bomb.png';
+      badge.alt = '';
+      node.append(badge);
+    }
     if (!unlocked) {
       node.insertAdjacentHTML('beforeend', LOCK);
       node.setAttribute('aria-disabled', 'true');
@@ -114,12 +124,13 @@ export function renderMap(container, levels, progress, onSelect) {
     if (state !== 'locked') {
       const label = document.createElement('span');
       label.className = 'node-label';
+      if (level.challenge) label.dataset.challenge = '';
       label.textContent = level.name;
       label.style.left = `${p.x}px`;
       label.style.top = `${p.y}px`;
       container.append(label);
     }
-    if (level.id === Math.min(progress.unlocked, levels.length)) current = p;
+    if (level.id === progress.unlocked) current = p;
   });
   return current;
 }

@@ -1,5 +1,5 @@
 import { Engine } from './core/engine.js';
-import { LEVELS } from './core/levels.js';
+import { EPISODES, EPISODE_SIZE, LEVELS, episodeOf } from './core/levels.js';
 import { createRng } from './core/rng.js';
 import { Hud } from './ui/hud.js';
 import { formatNumber, goalIcon, goalLabel, goalTargets } from './ui/goals.js';
@@ -30,6 +30,7 @@ export class App {
     this.mapScroll = root.querySelector('#map-scroll');
     this.mapPath = root.querySelector('#map-path');
     this.session = null;
+    this.episode = episodeOf(Math.min(this.progress.unlocked, LEVELS.length));
     this.modalActions = {};
     this.modalKind = null;
     this.modalToken = 0;
@@ -118,6 +119,8 @@ export class App {
       this.sound.play('click');
       this.show('title');
     });
+    $('#episode-prev').addEventListener('click', () => this.changeEpisode(-1));
+    $('#episode-next').addEventListener('click', () => this.changeEpisode(1));
     $('#pause-btn').addEventListener('click', () => {
       this.sound.play('click');
       this.pause();
@@ -151,15 +154,36 @@ export class App {
 
   // ------------------------------------------------------------------ map
 
-  openMap() {
+  // Shows the episode holding `levelId`, or the player's current level.
+  openMap(levelId = null) {
     this.endSession();
     this.closeModal();
+    this.episode = episodeOf(levelId ?? Math.min(this.progress.unlocked, LEVELS.length));
     this.show('map');
     this.renderMap(true);
   }
 
+  changeEpisode(step) {
+    const next = this.episode + step;
+    if (next < 0 || next >= EPISODES.length) return;
+    this.sound.play('click');
+    this.episode = next;
+    this.renderMap(true);
+    this.mapPath.classList.remove('slide-next', 'slide-prev');
+    void this.mapPath.offsetWidth;
+    this.mapPath.classList.add(step > 0 ? 'slide-next' : 'slide-prev');
+  }
+
   renderMap(scroll) {
-    const current = renderMap(this.mapPath, LEVELS, this.progress, (level, unlocked, node) => {
+    const first = this.episode * EPISODE_SIZE;
+    const levels = LEVELS.slice(first, first + EPISODE_SIZE);
+    const last = levels[levels.length - 1].id;
+    this.root.querySelector('#map-title').textContent = EPISODES[this.episode];
+    const locked = levels[0].id > this.progress.unlocked;
+    this.root.querySelector('#map-sub').textContent = `Episode ${this.episode + 1} · Levels ${levels[0].id}–${last}${locked ? ' · locked' : ''}`;
+    this.root.querySelector('#episode-prev').disabled = this.episode === 0;
+    this.root.querySelector('#episode-next').disabled = this.episode === EPISODES.length - 1;
+    const current = renderMap(this.mapPath, levels, this.progress, (level, unlocked, node) => {
       if (!unlocked) {
         this.sound.play('nope');
         node.animate(
@@ -172,9 +196,10 @@ export class App {
       this.levelIntro(level);
     });
     this.root.querySelector('#star-total').textContent = `${totalStars(this.progress)} / ${LEVELS.length * 3}`;
-    if (scroll && current) {
+    if (scroll) {
+      // Center the current level; otherwise start at the bottom of the trail, where the episode begins.
       requestAnimationFrame(() => {
-        this.mapScroll.scrollTop = current.y - this.mapScroll.clientHeight * 0.55;
+        this.mapScroll.scrollTop = current ? current.y - this.mapScroll.clientHeight * 0.55 : this.mapScroll.scrollHeight;
       });
     }
   }
@@ -186,11 +211,15 @@ export class App {
         (g) => `<li class="modal-goal"><img src="${goalIcon(g)}" alt=""><strong>${g.type === 'score' ? formatNumber(g.target) : g.target}</strong><span>${escapeHtml(goalLabel(g))}</span></li>`,
       )
       .join('');
+    const challenge = level.challenge
+      ? '<p class="modal-challenge"><img src="assets/items/bomb.png" alt="">Challenge level: a little tougher than usual. It may take a second try.</p>'
+      : '';
     this.openModal(
       'intro',
-      `<h2 class="ribbon" id="modal-title">Level ${level.id}</h2>
+      `<h2 class="ribbon${level.challenge ? ' challenge' : ''}" id="modal-title">Level ${level.id}</h2>
       <div class="modal-body">
         <p class="modal-sub">${escapeHtml(level.name)}</p>
+        ${challenge}
         <ul class="modal-goals" aria-label="Goals">${goalItems}</ul>
         ${level.tip ? `<p class="modal-text">${escapeHtml(level.tip)}</p>` : ''}
         <p class="modal-moves"><img src="assets/items/stopwatch.png" alt="">${level.moves} moves</p>
@@ -336,7 +365,7 @@ export class App {
       .join('');
     this.openModal(
       'win',
-      `<h2 class="ribbon mint" id="modal-title">Level ${level.id} cleared</h2>
+      `<h2 class="ribbon mint" id="modal-title">${level.challenge ? 'Challenge cleared' : `Level ${level.id} cleared`}</h2>
       <div class="modal-body">
         <p class="modal-sub">${pick(WIN_LINES)}</p>
         <div class="result-stars" role="img" aria-label="${result.stars} of 3 stars">${stars}</div>
@@ -350,7 +379,7 @@ export class App {
       {
         replay: () => this.startLevel(level),
         next: () => {
-          this.openMap();
+          this.openMap(next?.id ?? level.id);
           if (next) setTimeout(() => this.root.dataset.screen === 'map' && this.levelIntro(next), 650);
         },
       },
@@ -403,7 +432,7 @@ export class App {
           <button class="btn btn-caramel" type="button" data-action="retry">Try again</button>
         </div>
       </div>`,
-      { retry: () => this.startLevel(level), map: () => this.openMap() },
+      { retry: () => this.startLevel(level), map: () => this.openMap(level.id) },
     );
   }
 
@@ -429,7 +458,7 @@ export class App {
       {
         resume: () => this.resume(),
         restart: () => this.startLevel(level),
-        quit: () => this.openMap(),
+        quit: () => this.openMap(level.id),
         sound: (b) => this.toggle('sound', b),
         music: (b) => this.toggle('music', b),
       },
